@@ -36,9 +36,7 @@ conda activate HumanVision
 ### Run
 
 ```
-pyhton main.py  --base_dir path_to_project
-                --unity_path path_to_Unity
-                --project_path path_to_Unity_project
+pyhton main.py  --config path_to_config_file
 ```
 
 
@@ -48,7 +46,7 @@ pyhton main.py  --base_dir path_to_project
 
 1. Input parameters: binocular focus length, position, type of focus, FOV, and pupil length.
 
-2. Input images: Import left and right eye images at "Left Eye Image Location" and "Right Eye Image Location", or generate them in Unity. The input images will be displayed below.
+2. Input images: Import left and right eye images at "Left Eye Image Location" and "Right Eye Image Location"(You can use the sample photos from example_photos), or generate them in Unity. The input images will be displayed below.
 
 #### Blur and Mask
 

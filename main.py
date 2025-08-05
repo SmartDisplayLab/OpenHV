@@ -8,6 +8,7 @@ from HV import *
 import os
 import time
 import argparse
+import configparser
 
 import pyvista as pv
 from pyvista import Sphere, numpy_to_texture, global_theme
@@ -15,45 +16,70 @@ from pyvista import Sphere, numpy_to_texture, global_theme
 from pyvistaqt import QtInteractor
 
 
-# 常量定义
-#BASE_DIR = r"D:\CODES\master\HumanVisionSimulatorUI"
-#UNITY_PATH=r"G:\Program Files\Unity\Hub\Editor\2022.3.55f1c1\Editor\Unity.exe"
-#UNITY_SETTINGS_PATH = r"G:\Program Files\Unity\projects\HDRP\Assets\Resources\setting.txt"
+
 IMAGE_SIZE_480 = (480, 480)
 IMAGE_SIZE_320 = (320, 320)
-#RESULT_BASE = os.path.join(BASE_DIR, "fig", "result{}.png")
-#FIG_TMP_DIR = os.path.join(BASE_DIR, "fig_tmp")
 
 def get_parsers():
 
     parser = argparse.ArgumentParser(description="程序描述")
-    parser.add_argument("--base_dir", type=str, default=r"D:\CODES\master\HumanVisionSimulatorUI", help="项目路径")
-    parser.add_argument("--unity_path", type=str, default=r"G:\Program Files\Unity\Hub\Editor\2022.3.55f1c1\Editor\Unity.exe", help="Unity路径")
-    parser.add_argument("--project_path", type=str, default=r"G:\Program Files\Unity\projects\HDRP", help="项目路径")
-
+    parser.add_argument("--config", type=str, default='config\example.cfg', help="项目路径")
     return parser.parse_args()
+
+def read_config(file_path):
+    config = configparser.ConfigParser()
+    
+    # 检查文件是否存在
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"配置文件 {file_path} 不存在")
+    
+    # 读取配置文件
+    config.read(file_path)
+    
+    # 获取所有配置信息
+    config_data = {}
+    
+    # 遍历所有section
+    for section in config.sections():
+        config_data[section] = {}
+        
+        # 遍历section中的所有键值对
+        for key, value in config[section].items():
+            # 尝试自动转换类型
+            if value.lower() in ('true', 'yes', 'on'):
+                config_data[section][key] = True
+            elif value.lower() in ('false', 'no', 'off'):
+                config_data[section][key] = False
+            elif value.isdigit():
+                config_data[section][key] = int(value)
+            else:
+                try:
+                    # 尝试转换为浮点数
+                    config_data[section][key] = float(value)
+                except ValueError:
+                    # 保持为字符串
+                    config_data[section][key] = value
+    
+    return config_data
 
 
 
 class MyWindow(QMainWindow, Ui_MainWindow):
-    def __init__(self, args, parent=None):
+    def __init__(self, cfg, parent=None):
         super().__init__(parent)
         self.setupUi(self)
-        self.args = args
-        self.base_dir = args.base_dir
-        self.unity_path = args.unity_path
-        #self.result_base = os.path.join(args.base_dir, "fig",f"result{i}.png")
-        self.fig_tmp_dir = os.path.join(args.base_dir, "fig_tmp")
-        self.project_path = args.project_path
-        self.unity_settings_path = self.project_path+r"\Assets\Resources\setting.txt"
+        self.config = read_config(cfg)
+        self.base_dir = self.config['paths']['base_dir']
+        self.unity_path = self.config['paths']['unity_path']
+        self.fig_tmp_dir = os.path.join(self.base_dir, "fig_tmp")
+        self.project_path = self.config['paths']['project_path']
         
         # 初始化UI和绑定事件
         self._init_ui()
         self._bind_signals()
         
         # 初始化参数和资源
-        #self.result_locations = [self.result_base.format(i) for i in range(2 + 2 + 3 + 1 + 1 + 1)]
-        self.result_locations = [args.base_dir+f'/fig/result{i}.png'
+        self.result_locations = [self.base_dir+f'/fig/result{i}.png'
                                  for i in range(2 + 2 + 3 + 1 + 1 + 1)]
         self.parameters = {}
         self.maskL = self.maskR = None
@@ -90,20 +116,17 @@ class MyWindow(QMainWindow, Ui_MainWindow):
 
         self.input_axis_ocuil.clicked.connect(self.get_axis_ocuil)
 
+    
     def _load_settings(self):
-        """加载配置文件"""
-        with open(self.unity_settings_path) as f:
-            lines = [line.strip().split(",") for line in f.readlines()]
-            
-        #print(lines)
-        if len(lines) > 0:
-            self.textEdit.setText(lines[0][1])
-            self.comboBox_focus.setCurrentIndex(int(lines[1][1]))
-            self.textEdit_3.setText(lines[2][1])
-            self.textEdit_4.setText(lines[3][1])
-            self.textEdit_2.setText(lines[4][1])
-            #self.parameters["farClip"] = float(lines[5][1])
-            self.parameters["farClip"] = 0.0
+        settings = self.config['settings']
+        self.textEdit.setText(str(settings['focuslength']))
+        self.comboBox_focus.setCurrentIndex(int(settings['focustype']))
+        self.textEdit_3.setText(str(settings['fov']))
+        self.textEdit_4.setText(str(settings['pupillength']))
+        self.textEdit_2.setText(str(settings['position']))
+        #self.parameters["farClip"] = float(lines[5][1])
+        self.parameters["farClip"] = 0.0
+
 
     def _init_blur_and_mask(self):
         text1="Current half ALRR:"
@@ -180,11 +203,7 @@ class MyWindow(QMainWindow, Ui_MainWindow):
     def show_fig_in_retina(self):
         fig_left = cv2.imread('fig/result0.png')
         fig_right = cv2.imread('fig/result1.png')
-        #print(np.shape(fig_left))
-
-        #print(f"[DEBUG] Left widget size: {self.vtkWidgetleft.width()}x{self.vtkWidgetleft.height()}")
-        #print(f"[DEBUG] Right widget size: {self.vtkWidgetright.width()}x{self.vtkWidgetright.height()}")
-
+        
         self.standalone_visualize(self.left_retina_plotter,self.vtkWidgetleft,fig_left,120,60,1860,1860)
         self.standalone_visualize(self.right_retina_plotter,self.vtkWidgetright,fig_right,120,60,1860,1860)
         #plotter.show()
@@ -243,14 +262,12 @@ class MyWindow(QMainWindow, Ui_MainWindow):
         ]
 
         # 更新参数
-        with open(self.unity_settings_path, "w") as f:
-            for name, widget, converter in para_map:
-                if isinstance(widget, QtWidgets.QComboBox):
-                    value = converter(widget.currentText())
-                else:
-                    value = converter(widget.toPlainText())
-                self.parameters[name] = value
-                f.write(f"{name},{value}\n")
+        for name, widget, converter in para_map:
+            if isinstance(widget, QtWidgets.QComboBox):
+                value = converter(widget.currentText())
+            else:
+                value = converter(widget.toPlainText())
+            self.parameters[name] = value
 
         # 处理无限对焦
         if self.parameters["FocusType"] == 1:
@@ -259,11 +276,7 @@ class MyWindow(QMainWindow, Ui_MainWindow):
         # 生成掩模
         self._generate_masks()
 
-        # 更新文件路径
-        params = self.parameters
-        base_name = f"FOV{int(params['FOV'])}-F{params['FocusLength']:g}-pos{int(params['position'])}"
-        self.LeftText.setText(os.path.join(self.fig_tmp_dir, f"left_{base_name}.jpg"))
-        self.RightText.setText(os.path.join(self.fig_tmp_dir, f"right_{base_name}.jpg"))
+        
 
     def _generate_masks(self):
         """生成视觉掩模"""
@@ -329,12 +342,7 @@ class MyWindow(QMainWindow, Ui_MainWindow):
         self._set_pixmap(self.ImageF1_L, self.result_locations[2])
         self._set_pixmap(self.ImageF1_R, self.result_locations[3])
 
-        '''retina_img=cv2.imread('fig/retina.png')
-        retina_rgb = cv2.cvtColor(retina_img, cv2.COLOR_BGR2RGB)
-
-        #self._set_pixmap(self.Image_retina, retina_rgb)
-        self._set_pixmap(self.Image_retina, 'fig/retina.png')'''
-
+        
     def _handle_binocular_fusion(self):
         """处理双目融合"""
         left = self.LeftText.toPlainText()
@@ -403,7 +411,8 @@ class MyWindow(QMainWindow, Ui_MainWindow):
 
 if __name__ == "__main__":
     args=get_parsers()
+    config_file = args.config
     app = QApplication(sys.argv)
-    window = MyWindow(args)
+    window = MyWindow(config_file)
     window.show()
     sys.exit(app.exec_())

@@ -28,7 +28,7 @@ Unity版本为2021.3.8f1c1
 
 ```
 git clone
-cd HumanVisionSimulatorUI
+cd OpenHV
 conda env create -f environment.yml
 conda activate HumanVision
 ```
@@ -36,9 +36,7 @@ conda activate HumanVision
 ### 运行
 
 ```
-pyhton main.py  --base_dir 项目路径
-                --unity_path Unity路径
-                --project_path Unity项目路径
+pyhton main.py  ----config 配置文件
 ```
 
 ### 软件各部分功能说明
@@ -47,7 +45,7 @@ pyhton main.py  --base_dir 项目路径
 
    1. 输入参数：binocular focus length，position，type of focus，FOV和pupil length. 
 
-   2. 输入图像：在Left Eye Image Location和Right Eye Image Location处输入左右眼图片或在Unity中生成。输入的图像会显示在下方.
+   2. 输入图像：在Left Eye Image Location和Right Eye Image Location处输入左右眼图片（可使用example_photos中示例图片）或在Unity中生成。输入的图像会显示在下方.
       
 #### Bulr and Mask
 
