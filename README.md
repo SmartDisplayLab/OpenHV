@@ -28,7 +28,7 @@ This section describes how to use the software and the functions of each module.
 
 ```
 git clone
-cd HumanVisionSimulatorUI
+cd OpenHV
 conda env create -f environment.yml
 conda activate HumanVision
 ```
@@ -87,4 +87,4 @@ This section introduces the code structure and the functions of each component.
 
 - `V1_Function.py`: Implementation of the edge detection algorithm.
 
-- `xianzhuxing.py`: Implementation of the saliency detection algorithm.
+- `saliency.py`: Implementation of the saliency detection algorithm.

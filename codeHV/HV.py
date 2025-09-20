@@ -2,7 +2,7 @@ import math
 
 from DepthDetectionFunction import depthMap
 from V1_Function import *
-from xianzhuxing import Visual_Saliency_Detection
+from saliency import Visual_Saliency_Detection
 from setting import *
 
 
