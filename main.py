@@ -475,11 +475,11 @@ class MyWindow(QMainWindow, Ui_MainWindow):
             if frame.shape[:2] != (h, w):
                 frame = cv2.resize(frame, (w, h), interpolation=cv2.INTER_AREA)
 
-            '''if name == "left":
+            if name == "left":
                 frame = add_mask(frame, self.maskL)
             if name == "right":
                 frame = add_mask(frame, self.maskR)
-'''
+
             if name == "fusion":
                 left_frame = self.cap.latest_frames.get("left")
                 right_frame = self.cap.latest_frames.get("right")
@@ -527,7 +527,7 @@ class MyWindow(QMainWindow, Ui_MainWindow):
             #update_label_image("fusion", self.fusion_eye_label)
             end = time.perf_counter()  
             delay = end - start
-            print(f"执行延迟: {delay*1000:.3f} ms")
+            #print(f"执行延迟: {delay*1000:.3f} ms")
 
         # 👇 一定要用 self.timer，而不是局部变量
         self.timer = QTimer()
