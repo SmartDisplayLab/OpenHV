@@ -11,6 +11,7 @@ def f0(l, r, lf, rf):
     img_r = cv2.imread(r)
     cv2.imwrite(lf, img_l)
     cv2.imwrite(rf, img_r)
+    return img_l, img_r
 
 
 # 模糊，视野FOV限制（包含盲点）
@@ -55,11 +56,22 @@ def binocular_fusion(l, r, f, f1, f2, fov, pupil_length, FocusLength, maskL, mas
     img_l = add_mask(img_l, maskL)
     img_r = add_mask(img_r, maskR)
 
+    print('-------------------------------------------------------------------')
+    print(np.shape(img_l))
+    print('-------------------------------------------------------------------')
+
+
     # Do correction
     resL, resR = epipolarCorrection(img_l, img_r, right_euler_angle,
                                     left_euler_angle, camera_focus_length, pupil_length,
                                     h_fov, v_fov)
+    
+    print('-------------------------------------------------------------------')
+    print(np.shape(resL))
+    print('-------------------------------------------------------------------')
 
+    
+    
     r, l_cat, r_cat = image_fusion(resL, resR, shift=int(12 * (math.tan(fov/2/180*math.pi) / math.tan(80/180*math.pi))))
     l_cat = cv2.resize(l_cat, show_size)
     r_cat = cv2.resize(r_cat, show_size)

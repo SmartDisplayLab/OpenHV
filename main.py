@@ -95,6 +95,7 @@ class MyWindow(QMainWindow, Ui_MainWindow):
         # 加载初始配置
         self._load_settings()
         self.load_in_parameters()
+        self.present_image = {'left':None, 'right':None}
 
         
 
@@ -355,7 +356,7 @@ class MyWindow(QMainWindow, Ui_MainWindow):
         left = self.LeftText.toPlainText()
         right = self.RightText.toPlainText()
         print(left,right)
-        f0(left, right, self.result_locations[0], self.result_locations[1])
+        self.present_image['left'], self.present_image['right'] = f0(left, right, self.result_locations[0], self.result_locations[1])
         
         self._set_pixmap(self.LeftImage, left, IMAGE_SIZE_480)
         self._set_pixmap(self.RightImage, right, IMAGE_SIZE_480)
@@ -378,6 +379,7 @@ class MyWindow(QMainWindow, Ui_MainWindow):
         """处理双目融合"""
         left = self.LeftText.toPlainText()
         right = self.RightText.toPlainText()
+        
         params = [
             self.parameters["FOV"], 
             self.parameters["pupilLength"],
@@ -473,11 +475,11 @@ class MyWindow(QMainWindow, Ui_MainWindow):
             if frame.shape[:2] != (h, w):
                 frame = cv2.resize(frame, (w, h), interpolation=cv2.INTER_AREA)
 
-            if name == "left":
+            '''if name == "left":
                 frame = add_mask(frame, self.maskL)
             if name == "right":
                 frame = add_mask(frame, self.maskR)
-
+'''
             if name == "fusion":
                 left_frame = self.cap.latest_frames.get("left")
                 right_frame = self.cap.latest_frames.get("right")
