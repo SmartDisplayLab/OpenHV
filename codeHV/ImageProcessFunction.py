@@ -12,11 +12,13 @@ ring4 = cv2.imread('fig/mask4.png')
 
 # 对img加入形如mask的遮罩
 def add_mask(img, mask):
-    mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
-    # img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    if mask.ndim == 3:
+        mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+    if mask.dtype != np.uint8:
+        mask = mask.astype(np.uint8)
 
-    img = cv2.add(img, np.zeros(np.shape(img), dtype=img.dtype), mask=mask)
-    return img
+    result = cv2.bitwise_and(img, img, mask=mask)
+    return result
 
 
 # 旧模糊函数
@@ -48,23 +50,35 @@ def add_mask(img, mask):
 
 # 差异化模糊
 def blured_img(img):
-    blur = [47, 53, 60, 67, 75, 86, 97, 111,
-            127, 148, 180, 214, 274, 401, 631]
-    height, width = img.shape[:2]
-    mask = np.zeros_like(img)
-    num = 14
-    center = (width // 2, height // 2)
+    blur = [47, 53, 60, 67, 75, 86, 97, 111, 127, 148, 180, 214, 274, 401, 631]
+    h, w = img.shape[:2]
+    num = len(blur) - 1
+    center = (w // 2, h // 2)
     img_result = np.zeros_like(img)
-    for i in range(num):
-        inner_radius = int(blur[i] * width / 631)
-        outer_radius = int(blur[i + 1] * width / 631)
-        cv2.circle(mask, center, outer_radius if i < 14 else width, (255, 255, 255), -1)
-        cv2.circle(mask, center, inner_radius if i > 0 else 0, (0, 0, 0), -1)
-        n = i * 2 + 1
-        blurred_img = cv2.GaussianBlur(img, (n, n), 10)
-        img_result = cv2.bitwise_and(blurred_img, mask) + img_result
-    return img_result
 
+    # 预生成所有模糊图像（一次模糊，多次复用）
+    blurred_imgs = []
+    for i in range(num):
+        ksize = i * 2 + 1
+        if ksize % 2 == 0: ksize += 1
+        blurred_imgs.append(cv2.GaussianBlur(img, (ksize, ksize), 10))
+
+    # 循环时复用 mask，而不是重建整个矩阵
+    mask = np.zeros_like(img, dtype=np.uint8)
+
+    for i in range(num):
+        mask[:] = 0  # 原地清空，而不是重新创建
+        inner_r = int(blur[i] * w / 631)
+        outer_r = int(blur[i + 1] * w / 631)
+
+        # 绘制当前环的 mask（原地操作）
+        cv2.circle(mask, center, outer_r, (255, 255, 255), -1)
+        cv2.circle(mask, center, inner_r, (0, 0, 0), -1)
+
+        # 直接在 C++ 层按掩膜叠加（避免 Python 索引）
+        img_result = cv2.add(img_result, cv2.bitwise_and(blurred_imgs[i], mask))
+
+    return img_result
 
 # 对输入mask加入盲点，参数可调
 def add_blind(mask, side='left'):
@@ -154,57 +168,53 @@ def unlateral_fusion_SIFT(a, b, side='left'):
 
 
 def image_fusion(L, R, shift):
-    h, w = L.shape
-    ll = L[:, :w // 2]
-    LL = np.zeros_like(L)
-    LL[:, :w // 2] = ll
-    lr = L[:, w // 2:]
-    LR = np.zeros_like(L)
-    LR[:, -shift + w // 2:-shift + w] = lr
-    rl = R[:, :w // 2]
-    RL = np.zeros_like(L)
-    RL[:, shift:shift + w // 2] = rl
-    rr = R[:, w // 2:]
-    RR = np.zeros_like(L)
-    RR[:, w // 2:] = rr
+    """
+    基于水平偏移的左右图像融合
+    Args:
+        L, R: 左右输入图像 (numpy arrays, same size)
+        shift: 水平偏移像素（正值表示右图向右移动）
+    Returns:
+        r_cat: 最终融合图像
+        r_cat_L: 左半部分融合
+        r_cat_R: 右半部分融合
+    """
+    h, w = L.shape[:2]
+    shift = np.clip(shift, -w//2, w//2)  # 防止越界
 
-    r_cat = np.zeros_like(R)
+    # 分块
+    ll, lr = L[:, :w//2], L[:, w//2:]
+    rl, rr = R[:, :w//2], R[:, w//2:]
 
-    ind_mask_lr = np.where(lr > 0)
-    ind_mask_rr = np.where(rr > 0)
-    mask_lr = np.zeros_like(lr)
-    mask_rr = np.zeros_like(rr)
-    mask_lr[ind_mask_lr] = 255
-    mask_rr[ind_mask_rr] = 255
-    mask_lr_total = np.zeros_like(r_cat)
-    mask_lr_total[:, -shift + w // 2:-shift + w] = mask_lr
-    mask_rr_total = np.zeros_like(r_cat)
-    mask_rr_total[:, w // 2:w] = mask_rr
+    # 创建空图
+    zeros = np.zeros_like(L)
 
-    mask_lr_total = mask_lr_total - mask_rr_total
+    # 计算位置索引
+    def place_region(base, region, x_start):
+        x_end = x_start + region.shape[1]
+        if x_end <= 0 or x_start >= w:  # 完全超出范围
+            return base
+        xs, xe = max(0, x_start), min(w, x_end)
+        rs, re = max(0, -x_start), region.shape[1] - max(0, x_end - w)
+        base[:, xs:xe] = region[:, rs:re]
+        return base
 
-    mask_ll_total = np.flip(mask_rr_total, axis=1)
+    # 平移放置
+    LL = place_region(zeros.copy(), ll, 0)
+    LR = place_region(zeros.copy(), lr, w//2 - shift)
+    RL = place_region(zeros.copy(), rl, shift)
+    RR = place_region(zeros.copy(), rr, w//2)
 
-    mask_rl_total = np.flip(mask_lr_total, axis=1)
+    # 融合
+    r_cat_L = cv2.addWeighted(RL, 0.5, LL, 0.5, 0)
+    r_cat_R = cv2.addWeighted(RR, 0.5, LR, 0.5, 0)
 
-    r_cat_LR = cv2.add(np.zeros_like(LR), LR,
-                       mask=mask_lr_total)
-    r_cat_RR = cv2.add(np.zeros_like(RR), RR,
-                       mask=mask_rr_total)
-    r_cat_RL = cv2.add(np.zeros_like(RL), RL,
-                       mask=mask_rl_total)
-    r_cat_LL = cv2.add(np.zeros_like(LL), LL,
-                       mask=mask_ll_total)
-    r_cat_L = r_cat_RL + r_cat_LL
-    r_cat_R = r_cat_RR + r_cat_LR
-    validR = np.where(r_cat_R > 0)
-    x_min = np.min(validR[1])
+    # 合并
+    validR = np.where(np.sum(r_cat_R, axis=2) > 0)
+    x_min = np.min(validR[1]) if validR[0].size > 0 else w//2
 
-    r_cat[:, x_min:] = r_cat_R[:, x_min:]
+    r_cat = np.zeros_like(L)
     r_cat[:, :x_min] = r_cat_L[:, :x_min]
-
-    # l_cat = unlateral_fusion(ll, rl, side='left')
-    # r_cat = unlateral_fusion(lr, rr, side='right')
+    r_cat[:, x_min:] = r_cat_R[:, x_min:]
 
     return r_cat, r_cat_L, r_cat_R
 

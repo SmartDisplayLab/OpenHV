@@ -4,7 +4,7 @@ from ui import *
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
-from HV import *
+from codeHV.HV import *
 import os
 import time
 import argparse
@@ -14,6 +14,10 @@ import pyvista as pv
 from pyvista import Sphere, numpy_to_texture, global_theme
 
 from pyvistaqt import QtInteractor
+
+from codeHV.Capture import capture
+
+import time
 
 
 
@@ -100,6 +104,10 @@ class MyWindow(QMainWindow, Ui_MainWindow):
         self.LeftImage.setFixedSize(*IMAGE_SIZE_480)
         self.RightImage.setFixedSize(*IMAGE_SIZE_480)
 
+        self.real_label.setScaledContents(True)
+        self.left_eye_label.setScaledContents(True)
+        self.right_eye_label.setScaledContents(True)
+
     def _bind_signals(self):
         """绑定信号与槽"""
         self.pushButton_left.clicked.connect(self.choose_file_left)
@@ -116,6 +124,9 @@ class MyWindow(QMainWindow, Ui_MainWindow):
 
         self.input_axis_ocuil.clicked.connect(self.get_axis_ocuil)
 
+        self.pushButtontry.clicked.connect(self.captureshow)
+        self.pushButtontry_2.clicked.connect(self.endshow)
+
     
     def _load_settings(self):
         settings = self.config['settings']
@@ -126,6 +137,8 @@ class MyWindow(QMainWindow, Ui_MainWindow):
         self.textEdit_2.setText(str(settings['position']))
         #self.parameters["farClip"] = float(lines[5][1])
         self.parameters["farClip"] = 0.0
+
+        self.cap = None
 
 
     def _init_blur_and_mask(self):
@@ -183,6 +196,18 @@ class MyWindow(QMainWindow, Ui_MainWindow):
         
         import subprocess
         subprocess.run(cmd, check=True)
+        '''if self.cap is None or self.cap.latest_frames['left'] is None:
+            return
+        left_img = self.cap.latest_frames["left"]
+        right_img = self.cap.latest_frames["right"]
+
+        cv2.imwrite(self.result_locations[0], left_img)
+        cv2.imwrite(self.result_locations[1], right_img)
+
+        #f0(left, right, self.result_locations[0], self.result_locations[1])
+        
+        self._set_pixmap(self.LeftImage, left_img, IMAGE_SIZE_480)
+        self._set_pixmap(self.RightImage, right_img, IMAGE_SIZE_480)'''
 
     def get_axis_ocuil(self):
         text = self.axis_ocuil_input.toPlainText().strip()
@@ -305,6 +330,9 @@ class MyWindow(QMainWindow, Ui_MainWindow):
         self.maskL = add_blind(copy.deepcopy(self.maskL_noBlind), "left")
         self.maskR = add_blind(copy.deepcopy(self.maskR_noBlind), "right")
 
+        #self.maskL = cv2.resize(mask_l, target_size)
+        #self.maskR = cv2.resize(mask_r, target_size)
+
     def load_in(self):
         """根据当前选中的列表项加载对应内容"""
         func_handlers = {
@@ -336,6 +364,9 @@ class MyWindow(QMainWindow, Ui_MainWindow):
         """处理模糊图像显示"""
         left = self.LeftText.toPlainText()
         right = self.RightText.toPlainText()
+
+        
+
         blur(left, right, self.result_locations[2], self.result_locations[3], 
            self.maskL, self.maskR)
         
@@ -391,6 +422,144 @@ class MyWindow(QMainWindow, Ui_MainWindow):
         if size:
             pixmap = pixmap.scaled(*size, Qt.KeepAspectRatio)
         widget.setPixmap(pixmap)
+
+    def captureshow(self):
+        import threading
+        from PyQt5.QtCore import QTimer, Qt
+        from PyQt5.QtGui import QImage, QPixmap
+
+        host = '127.0.0.1'
+        main_port = 5001
+        left_port = 5002
+        right_port = 5003
+
+        self.cap = capture(host)
+        threading.Thread(target=self.cap.receive_stream, args=("main", main_port), daemon=True).start()
+        threading.Thread(target=self.cap.receive_stream, args=("left", left_port), daemon=True).start()
+        threading.Thread(target=self.cap.receive_stream, args=("right", right_port), daemon=True).start()
+
+        import cProfile
+        import pstats
+        import io
+
+        if self.maskL is None:
+                self._generate_masks()
+
+
+        def cvimg_to_qpixmap(cv_img):
+            h, w, ch = cv_img.shape
+            bytes_per_line = ch * w
+            q_img = QImage(cv_img.data, w, h, bytes_per_line, QImage.Format_BGR888)
+            q_img._ref = cv_img  # 防止被 GC
+            return QPixmap.fromImage(q_img)
+
+        def update_label_image(name, label):
+
+            
+
+            #print(self.maskL.shape) (1860,1860,3)
+            h, w, _ = self.maskL.shape
+
+            frame = self.cap.latest_frames.get(name)
+            '''if frame is None and name != "fusion":
+                return'''
+
+            if name == "fusion":
+                frame = np.zeros((h,w))
+            
+            if frame is None:
+                return
+            
+            if frame.shape[:2] != (h, w):
+                frame = cv2.resize(frame, (w, h), interpolation=cv2.INTER_AREA)
+
+            if name == "left":
+                frame = add_mask(frame, self.maskL)
+            if name == "right":
+                frame = add_mask(frame, self.maskR)
+
+            if name == "fusion":
+                left_frame = self.cap.latest_frames.get("left")
+                right_frame = self.cap.latest_frames.get("right")
+                
+                if left_frame is None:
+                    return
+                
+                left_frame = cv2.resize(left_frame,(h,w))
+                right_frame = cv2.resize(right_frame,(h,w))
+
+                params = [
+                    self.parameters["FOV"], 
+                    self.parameters["pupilLength"],
+                    self.parameters["FocusLength"],
+                    self.maskL,
+                    self.maskR
+                ]
+
+                profiler = cProfile.Profile()
+                profiler.enable()
+                frame = binocular_fusion(left_frame, right_frame, self.result_locations[4], self.result_locations[5],
+                        self.result_locations[6], *params)
+                profiler.disable()
+
+                stats = pstats.Stats(profiler).sort_stats('cumtime')
+                stats.print_stats(10)  # 显示前10条最耗时函数
+                
+                if frame is None:
+                    return
+
+            
+            pixmap = cvimg_to_qpixmap(frame)
+            '''if pixmap:
+                label.setPixmap(pixmap.scaled(
+                    label.width(), label.height(), Qt.KeepAspectRatio))'''
+            if pixmap:
+                label.setPixmap(pixmap)
+
+        def refresh_labels():
+            
+            start = time.perf_counter()
+            update_label_image("main", self.real_label)
+            update_label_image("left", self.left_eye_label)
+            update_label_image("right", self.right_eye_label)
+            #update_label_image("fusion", self.fusion_eye_label)
+            end = time.perf_counter()  
+            delay = end - start
+            print(f"执行延迟: {delay*1000:.3f} ms")
+
+        # 👇 一定要用 self.timer，而不是局部变量
+        self.timer = QTimer()
+        self.timer.timeout.connect(lambda: refresh_labels())
+        self.timer.start(33)
+
+
+    def endshow(self):
+        """结束图像显示并清空 QLabel"""
+        # 1️⃣ 停止定时器
+        if getattr(self, "timer", None) is not None and self.timer.isActive():
+            self.timer.stop()
+            self.timer = None
+
+        # 2️⃣ 关闭接收线程（可选）
+        if hasattr(self, "cap"):
+            try:
+                # 如果你在 capture 类里加了 stop 标志，可以在这里设置：
+                self.cap.running = False
+                self.cap = None
+            except Exception as e:
+                print(f"Error closing capture: {e}")
+
+        # 3️⃣ 清空 QLabel 内容
+        if hasattr(self, "real_label"):
+            self.real_label.clear()
+        if hasattr(self, "left_eye_label"):
+            self.left_eye_label.clear()
+        if hasattr(self, "right_eye_label"):
+            self.right_eye_label.clear()
+        if hasattr(self, "fusion_eye_label"):
+            self.fusion_eye_label.clear()
+
+        print("显示已结束，QLabel 已清空。")
 
     def closeEvent(self, event):
         # 安全销毁两个 plotter

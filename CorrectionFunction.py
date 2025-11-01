@@ -142,7 +142,7 @@ def epipolarCorrection(img_l, img_r, right_euler_angle, left_euler_angle, camera
 
 if __name__ == '__main__':
     from setting import *
-    from ImageProcessFunction import *
+    from codeHV.ImageProcessFunction import *
     #
     img_l = cv2.imread(f"0EyeBall-left.jpg", cv2.IMREAD_GRAYSCALE)
     img_r = cv2.imread(f"0EyeBall-right.jpg", cv2.IMREAD_GRAYSCALE)

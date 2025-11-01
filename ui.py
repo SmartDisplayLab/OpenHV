@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'HVUI-v2.ui'
+# Form implementation generated from reading ui file 'HVUI-v3.ui'
 #
 # Created by: PyQt5 UI code generator 5.15.9
 #
@@ -50,6 +50,8 @@ class Ui_MainWindow(object):
 "    height: 40px; /* 固定行高 */\n"
 "}")
         self.listWidget.setObjectName("listWidget")
+        item = QtWidgets.QListWidgetItem()
+        self.listWidget.addItem(item)
         item = QtWidgets.QListWidgetItem()
         self.listWidget.addItem(item)
         item = QtWidgets.QListWidgetItem()
@@ -362,6 +364,39 @@ class Ui_MainWindow(object):
         self.horizontalLayout_7.addWidget(self.ImageF5_L)
         self.verticalLayout_7.addLayout(self.horizontalLayout_7)
         self.stackedWidget.addWidget(self.stackedWidgetPage6)
+        self.page = QtWidgets.QWidget()
+        self.page.setObjectName("page")
+        self.pushButtontry = QtWidgets.QPushButton(self.page)
+        self.pushButtontry.setGeometry(QtCore.QRect(110, 120, 401, 61))
+        self.pushButtontry.setObjectName("pushButtontry")
+        self.pushButtontry_2 = QtWidgets.QPushButton(self.page)
+        self.pushButtontry_2.setGeometry(QtCore.QRect(580, 120, 401, 61))
+        self.pushButtontry_2.setObjectName("pushButtontry_2")
+        self.left_eye_label = QtWidgets.QLabel(self.page)
+        self.left_eye_label.setGeometry(QtCore.QRect(100, 480, 224, 224))
+        self.left_eye_label.setFrameShape(QtWidgets.QFrame.Box)
+        self.left_eye_label.setText("")
+        self.left_eye_label.setAlignment(QtCore.Qt.AlignCenter)
+        self.left_eye_label.setObjectName("left_eye_label")
+        self.right_eye_label = QtWidgets.QLabel(self.page)
+        self.right_eye_label.setGeometry(QtCore.QRect(700, 480, 224, 224))
+        self.right_eye_label.setFrameShape(QtWidgets.QFrame.Box)
+        self.right_eye_label.setText("")
+        self.right_eye_label.setAlignment(QtCore.Qt.AlignCenter)
+        self.right_eye_label.setObjectName("right_eye_label")
+        self.fusion_eye_label = QtWidgets.QLabel(self.page)
+        self.fusion_eye_label.setGeometry(QtCore.QRect(400, 480, 224, 224))
+        self.fusion_eye_label.setFrameShape(QtWidgets.QFrame.Box)
+        self.fusion_eye_label.setText("")
+        self.fusion_eye_label.setAlignment(QtCore.Qt.AlignCenter)
+        self.fusion_eye_label.setObjectName("fusion_eye_label")
+        self.real_label = QtWidgets.QLabel(self.page)
+        self.real_label.setGeometry(QtCore.QRect(400, 210, 224, 224))
+        self.real_label.setFrameShape(QtWidgets.QFrame.Box)
+        self.real_label.setText("")
+        self.real_label.setAlignment(QtCore.Qt.AlignCenter)
+        self.real_label.setObjectName("real_label")
+        self.stackedWidget.addWidget(self.page)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 1373, 26))
@@ -372,7 +407,7 @@ class Ui_MainWindow(object):
         MainWindow.setStatusBar(self.statusbar)
 
         self.retranslateUi(MainWindow)
-        self.stackedWidget.setCurrentIndex(1)
+        self.stackedWidget.setCurrentIndex(0)
         self.comboBox_focus.setCurrentIndex(0)
         self.tabWidget.setCurrentIndex(0)
         self.listWidget.currentRowChanged['int'].connect(self.stackedWidget.setCurrentIndex) # type: ignore
@@ -395,6 +430,8 @@ class Ui_MainWindow(object):
         item.setText(_translate("MainWindow", "Edge Detection"))
         item = self.listWidget.item(5)
         item.setText(_translate("MainWindow", "Saliency Detection"))
+        item = self.listWidget.item(6)
+        item.setText(_translate("MainWindow", "Capture"))
         self.listWidget.setSortingEnabled(__sortingEnabled)
         self.LeftLabel.setText(_translate("MainWindow", "Left Eye Image Location"))
         self.RightLabel.setText(_translate("MainWindow", "Right Eye Image Location"))
@@ -428,3 +465,5 @@ class Ui_MainWindow(object):
         self.F3.setText(_translate("MainWindow", "Generate"))
         self.F4.setText(_translate("MainWindow", "Generate"))
         self.F5.setText(_translate("MainWindow", "Generate"))
+        self.pushButtontry.setText(_translate("MainWindow", "show"))
+        self.pushButtontry_2.setText(_translate("MainWindow", "endshow"))

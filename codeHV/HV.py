@@ -14,7 +14,7 @@ def f0(l, r, lf, rf):
 
 
 # 模糊，视野FOV限制（包含盲点）
-def f1(l, r, lf, rf, maskL, maskR):
+def blur(l, r, lf, rf, maskL, maskR):
     img_l = cv2.imread(l, cv2.IMREAD_GRAYSCALE)
     img_r = cv2.imread(r, cv2.IMREAD_GRAYSCALE)
 
@@ -29,14 +29,26 @@ def f1(l, r, lf, rf, maskL, maskR):
 
 
 # 单边、双边双目融合
-def f2(l, r, f, f1, f2, fov, pupil_length, FocusLength, maskL, maskR):
+def binocular_fusion(l, r, f, f1, f2, fov, pupil_length, FocusLength, maskL, maskR):
     h_fov = v_fov = fov
     hh = math.atan(pupil_length/2/FocusLength) * 180 / math.pi
     right_euler_angle = [0, hh, 0]
     left_euler_angle = [0, -hh, 0]
 
-    img_l = cv2.imread(l, cv2.IMREAD_GRAYSCALE)
-    img_r = cv2.imread(r, cv2.IMREAD_GRAYSCALE)
+    #img_l = cv2.imread(l, cv2.IMREAD_GRAYSCALE)
+    if isinstance(l, str):
+        img_l = cv2.imread(l, cv2.IMREAD_GRAYSCALE)
+    elif isinstance(l, np.ndarray):
+        img_l = l
+    else:
+        raise TypeError("image_source must be path or bytes")
+    #img_r = cv2.imread(r, cv2.IMREAD_GRAYSCALE)
+    if isinstance(r, str):
+        img_r = cv2.imread(r, cv2.IMREAD_GRAYSCALE)
+    elif isinstance(r, np.ndarray):
+        img_r = r
+    else:
+        raise TypeError("image_source must be path or bytes")
 
     img_l = blured_img(img_l)
     img_r = blured_img(img_r)
@@ -57,9 +69,11 @@ def f2(l, r, f, f1, f2, fov, pupil_length, FocusLength, maskL, maskR):
     cv2.imwrite(f2, r_cat)
     cv2.imwrite(f, r)
 
+    return r
+
 
 # 深度图结果
-def f3(l, r, f, fov, pupil_length, FocusLength, maskL, maskR):
+def compute_depth_map(l, r, f, fov, pupil_length, FocusLength, maskL, maskR):
     h_fov = v_fov = fov
     hh = math.atan(pupil_length / 2 / FocusLength) * 180 / math.pi
     right_euler_angle = [0, hh, 0]
@@ -89,6 +103,7 @@ def f3(l, r, f, fov, pupil_length, FocusLength, maskL, maskR):
 
     # depthImg = depthMap(resL, resR, mask)
     depthImg = depthMap(resL, resR, mask)
+    cv2.imwrite('./fig/depth_map.jpg',depthImg)
     depthImg = cv2.resize(depthImg, show_size)
 
     plt.figure()
@@ -102,7 +117,7 @@ def f3(l, r, f, fov, pupil_length, FocusLength, maskL, maskR):
 
 
 # 边缘检测
-def f4(input, f):
+def edge_detection(input, f):
     img = cv2.imread(input, cv2.IMREAD_GRAYSCALE)
     img = unsharp_mask1(img)
     img = edge_detection_Canny(img)
@@ -111,7 +126,7 @@ def f4(input, f):
 
 
 # 显著性检测
-def f5(input, f):
+def segment_saliency(input, f):
     img = cv2.imread(input, cv2.IMREAD_GRAYSCALE)
     tmp = Visual_Saliency_Detection(img)
     tmp = cv2.resize(tmp, show_size)

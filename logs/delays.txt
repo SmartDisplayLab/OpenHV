@@ -1,0 +1,13 @@
+ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.018    0.018    1.131    1.131 D:\CODES\master\OpenHV\codeHV\HV.py:32(binocular_fusion)
+        2    0.429    0.215    0.733    0.367 D:\CODES\master\OpenHV\codeHV\ImageProcessFunction.py:62(blured_img)
+        2    0.202    0.101    0.208    0.104 D:\CODES\master\OpenHV\codeHV\ImageProcessFunction.py:14(add_mask)
+       28    0.170    0.006    0.170    0.006 {GaussianBlur}
+        1    0.007    0.007    0.123    0.123 D:\CODES\master\OpenHV\codeHV\ImageProcessFunction.py:168(image_fusion)
+    36/18    0.035    0.001    0.105    0.006 {built-in method numpy.core._multiarray_umath.implement_array_function}
+       28    0.102    0.004    0.102    0.004 {bitwise_and}
+        2    0.000    0.000    0.069    0.034 D:\Anaconda3\envs\HumanVision\lib\site-packages\numpy\core\fromnumeric.py:69(_wrapreduction)
+        2    0.069    0.034    0.069    0.034 {method 'reduce' of 'numpy.ufunc' objects}
+        1    0.000    0.000    0.067    0.067 <__array_function__ internals>:177(sum)
+
+
