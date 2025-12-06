@@ -154,57 +154,53 @@ def unlateral_fusion_SIFT(a, b, side='left'):
 
 
 def image_fusion(L, R, shift):
-    h, w = L.shape
-    ll = L[:, :w // 2]
-    LL = np.zeros_like(L)
-    LL[:, :w // 2] = ll
-    lr = L[:, w // 2:]
-    LR = np.zeros_like(L)
-    LR[:, -shift + w // 2:-shift + w] = lr
-    rl = R[:, :w // 2]
-    RL = np.zeros_like(L)
-    RL[:, shift:shift + w // 2] = rl
-    rr = R[:, w // 2:]
-    RR = np.zeros_like(L)
-    RR[:, w // 2:] = rr
+    """
+    基于水平偏移的左右图像融合
+    Args:
+        L, R: 左右输入图像 (numpy arrays, same size)
+        shift: 水平偏移像素（正值表示右图向右移动）
+    Returns:
+        r_cat: 最终融合图像
+        r_cat_L: 左半部分融合
+        r_cat_R: 右半部分融合
+    """
+    h, w = L.shape[:2]
+    shift = np.clip(shift, -w//2, w//2)  # 防止越界
 
-    r_cat = np.zeros_like(R)
+    # 分块
+    ll, lr = L[:, :w//2], L[:, w//2:]
+    rl, rr = R[:, :w//2], R[:, w//2:]
 
-    ind_mask_lr = np.where(lr > 0)
-    ind_mask_rr = np.where(rr > 0)
-    mask_lr = np.zeros_like(lr)
-    mask_rr = np.zeros_like(rr)
-    mask_lr[ind_mask_lr] = 255
-    mask_rr[ind_mask_rr] = 255
-    mask_lr_total = np.zeros_like(r_cat)
-    mask_lr_total[:, -shift + w // 2:-shift + w] = mask_lr
-    mask_rr_total = np.zeros_like(r_cat)
-    mask_rr_total[:, w // 2:w] = mask_rr
+    # 创建空图
+    zeros = np.zeros_like(L)
 
-    mask_lr_total = mask_lr_total - mask_rr_total
+    # 计算位置索引
+    def place_region(base, region, x_start):
+        x_end = x_start + region.shape[1]
+        if x_end <= 0 or x_start >= w:  # 完全超出范围
+            return base
+        xs, xe = max(0, x_start), min(w, x_end)
+        rs, re = max(0, -x_start), region.shape[1] - max(0, x_end - w)
+        base[:, xs:xe] = region[:, rs:re]
+        return base
 
-    mask_ll_total = np.flip(mask_rr_total, axis=1)
+    # 平移放置
+    LL = place_region(zeros.copy(), ll, 0)
+    LR = place_region(zeros.copy(), lr, w//2 - shift)
+    RL = place_region(zeros.copy(), rl, shift)
+    RR = place_region(zeros.copy(), rr, w//2)
 
-    mask_rl_total = np.flip(mask_lr_total, axis=1)
+    # 融合
+    r_cat_L = cv2.addWeighted(RL, 0.5, LL, 0.5, 0)
+    r_cat_R = cv2.addWeighted(RR, 0.5, LR, 0.5, 0)
 
-    r_cat_LR = cv2.add(np.zeros_like(LR), LR,
-                       mask=mask_lr_total)
-    r_cat_RR = cv2.add(np.zeros_like(RR), RR,
-                       mask=mask_rr_total)
-    r_cat_RL = cv2.add(np.zeros_like(RL), RL,
-                       mask=mask_rl_total)
-    r_cat_LL = cv2.add(np.zeros_like(LL), LL,
-                       mask=mask_ll_total)
-    r_cat_L = r_cat_RL + r_cat_LL
-    r_cat_R = r_cat_RR + r_cat_LR
-    validR = np.where(r_cat_R > 0)
-    x_min = np.min(validR[1])
+    # 合并
+    validR = np.where(np.sum(r_cat_R, axis=2) > 0)
+    x_min = np.min(validR[1]) if validR[0].size > 0 else w//2
 
-    r_cat[:, x_min:] = r_cat_R[:, x_min:]
+    r_cat = np.zeros_like(L)
     r_cat[:, :x_min] = r_cat_L[:, :x_min]
-
-    # l_cat = unlateral_fusion(ll, rl, side='left')
-    # r_cat = unlateral_fusion(lr, rr, side='right')
+    r_cat[:, x_min:] = r_cat_R[:, x_min:]
 
     return r_cat, r_cat_L, r_cat_R
 

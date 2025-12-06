@@ -15,9 +15,9 @@ def f0(l, r, lf, rf):
 
 
 # 模糊，视野FOV限制（包含盲点）
-def blur(l, r, lf, rf, maskL, maskR):
-    img_l = cv2.imread(l, cv2.IMREAD_GRAYSCALE)
-    img_r = cv2.imread(r, cv2.IMREAD_GRAYSCALE)
+def blur(imgs, lf, rf, maskL, maskR):
+    img_l = imgs['left']
+    img_r = imgs['right']
 
     img_l = blured_img(img_l)
     img_r = blured_img(img_r)
@@ -28,28 +28,19 @@ def blur(l, r, lf, rf, maskL, maskR):
     cv2.imwrite(lf, img_l)
     cv2.imwrite(rf, img_r)
 
+    return img_l, img_r
+
 
 # 单边、双边双目融合
-def binocular_fusion(l, r, f, f1, f2, fov, pupil_length, FocusLength, maskL, maskR):
+def binocular_fusion(imgs, f, f1, f2, fov, pupil_length, FocusLength, maskL, maskR):
     h_fov = v_fov = fov
     hh = math.atan(pupil_length/2/FocusLength) * 180 / math.pi
     right_euler_angle = [0, hh, 0]
     left_euler_angle = [0, -hh, 0]
 
     #img_l = cv2.imread(l, cv2.IMREAD_GRAYSCALE)
-    if isinstance(l, str):
-        img_l = cv2.imread(l, cv2.IMREAD_GRAYSCALE)
-    elif isinstance(l, np.ndarray):
-        img_l = l
-    else:
-        raise TypeError("image_source must be path or bytes")
-    #img_r = cv2.imread(r, cv2.IMREAD_GRAYSCALE)
-    if isinstance(r, str):
-        img_r = cv2.imread(r, cv2.IMREAD_GRAYSCALE)
-    elif isinstance(r, np.ndarray):
-        img_r = r
-    else:
-        raise TypeError("image_source must be path or bytes")
+    img_l = imgs['left']
+    img_r = imgs['right']
 
     img_l = blured_img(img_l)
     img_r = blured_img(img_r)
@@ -71,18 +62,18 @@ def binocular_fusion(l, r, f, f1, f2, fov, pupil_length, FocusLength, maskL, mas
     cv2.imwrite(f2, r_cat)
     cv2.imwrite(f, r)
 
-    return r
+    return r, l_cat, r_cat
 
 
 # 深度图结果
-def compute_depth_map(l, r, f, fov, pupil_length, FocusLength, maskL, maskR):
+def compute_depth_map(imgs, f, fov, pupil_length, FocusLength, maskL, maskR):
     h_fov = v_fov = fov
     hh = math.atan(pupil_length / 2 / FocusLength) * 180 / math.pi
     right_euler_angle = [0, hh, 0]
     left_euler_angle = [0, -hh, 0]
 
-    img_l = cv2.imread(l, cv2.IMREAD_GRAYSCALE)
-    img_r = cv2.imread(r, cv2.IMREAD_GRAYSCALE)
+    img_l = cv2.cvtColor(imgs['left'], cv2.COLOR_BGR2GRAY)
+    img_r = cv2.cvtColor(imgs['right'], cv2.COLOR_BGR2GRAY)
 
     img_l = blured_img(img_l)
     img_r = blured_img(img_r)
@@ -117,6 +108,15 @@ def compute_depth_map(l, r, f, fov, pupil_length, FocusLength, maskL, maskR):
 
     plt.savefig(f)
 
+    # 从当前figure中获取绘制内容
+    fig = plt.gcf()
+    fig.canvas.draw()
+    img = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+    img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+
+    plt.close(fig)
+    return img
+
 
 # 边缘检测
 def edge_detection(input, f):
@@ -125,6 +125,7 @@ def edge_detection(input, f):
     img = edge_detection_Canny(img)
     img = cv2.resize(img, show_size)
     cv2.imwrite(f, img)
+    return img
 
 
 # 显著性检测
@@ -133,3 +134,4 @@ def segment_saliency(input, f):
     tmp = Visual_Saliency_Detection(img)
     tmp = cv2.resize(tmp, show_size)
     cv2.imwrite(f, tmp)
+    return tmp

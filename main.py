@@ -171,7 +171,7 @@ class MyWindow(QMainWindow, Ui_MainWindow):
             self.RightText.setText(filename)
 
     def generate_img_in_unity(self):
-        """调用Unity生成图像"""
+        '''"""调用Unity生成图像"""
         unity_exe = self.unity_path
         project_path = self.project_path
         log_path = os.path.join(project_path, "unity_log.log")
@@ -196,19 +196,19 @@ class MyWindow(QMainWindow, Ui_MainWindow):
         ]
         
         import subprocess
-        subprocess.run(cmd, check=True)
-        '''if self.cap is None or self.cap.latest_frames['left'] is None:
+        subprocess.run(cmd, check=True)'''
+        if self.cap is None or self.cap.latest_frames['left'] is None:
             return
-        left_img = self.cap.latest_frames["left"]
-        right_img = self.cap.latest_frames["right"]
+        self.present_image['left'] = self.cap.latest_frames["left"]
+        self.present_image['right'] = self.cap.latest_frames["right"]
 
-        cv2.imwrite(self.result_locations[0], left_img)
-        cv2.imwrite(self.result_locations[1], right_img)
+        cv2.imwrite(self.result_locations[0], self.present_image['left'])
+        cv2.imwrite(self.result_locations[1], self.present_image['right'])
 
         #f0(left, right, self.result_locations[0], self.result_locations[1])
         
-        self._set_pixmap(self.LeftImage, left_img, IMAGE_SIZE_480)
-        self._set_pixmap(self.RightImage, right_img, IMAGE_SIZE_480)'''
+        self._set_pixmap(self.LeftImage, self.present_image['left'], IMAGE_SIZE_480)
+        self._set_pixmap(self.RightImage, self.present_image['right'], IMAGE_SIZE_480)
 
     def get_axis_ocuil(self):
         text = self.axis_ocuil_input.toPlainText().strip()
@@ -358,27 +358,23 @@ class MyWindow(QMainWindow, Ui_MainWindow):
         print(left,right)
         self.present_image['left'], self.present_image['right'] = f0(left, right, self.result_locations[0], self.result_locations[1])
         
-        self._set_pixmap(self.LeftImage, left, IMAGE_SIZE_480)
-        self._set_pixmap(self.RightImage, right, IMAGE_SIZE_480)
+        self._set_pixmap(self.LeftImage, self.present_image['left'], IMAGE_SIZE_480)
+        self._set_pixmap(self.RightImage, self.present_image['right'], IMAGE_SIZE_480)
 
     def _handle_blurred_images(self):
         """处理模糊图像显示"""
-        left = self.LeftText.toPlainText()
-        right = self.RightText.toPlainText()
-
         
-
-        blur(left, right, self.result_locations[2], self.result_locations[3], 
-           self.maskL, self.maskR)
+        left_blured_img, right_blured_img = blur(self.present_image, self.result_locations[2], 
+                                                 self.result_locations[3], self.maskL, self.maskR)
         
-        self._set_pixmap(self.ImageF1_L, self.result_locations[2])
-        self._set_pixmap(self.ImageF1_R, self.result_locations[3])
+        
+        
+        self._set_pixmap(self.ImageF1_L, left_blured_img)
+        self._set_pixmap(self.ImageF1_R, right_blured_img)
 
         
     def _handle_binocular_fusion(self):
         """处理双目融合"""
-        left = self.LeftText.toPlainText()
-        right = self.RightText.toPlainText()
         
         params = [
             self.parameters["FOV"], 
@@ -387,17 +383,15 @@ class MyWindow(QMainWindow, Ui_MainWindow):
             self.maskL,
             self.maskR
         ]
-        binocular_fusion(left, right, self.result_locations[4], self.result_locations[5],
-           self.result_locations[6], *params)
+        fusioned, fusioned_l, fusioned_r = binocular_fusion(self.present_image, self.result_locations[4], 
+                                                            self.result_locations[5],self.result_locations[6], *params)
         
-        self._set_pixmap(self.ImageF2, self.result_locations[4], IMAGE_SIZE_320)
-        self._set_pixmap(self.ImageF2_L, self.result_locations[5], IMAGE_SIZE_320)
-        self._set_pixmap(self.ImageF2_R, self.result_locations[6], IMAGE_SIZE_320)
+        self._set_pixmap(self.ImageF2, fusioned, IMAGE_SIZE_320)
+        self._set_pixmap(self.ImageF2_L, fusioned_l, IMAGE_SIZE_320)
+        self._set_pixmap(self.ImageF2_R, fusioned_r, IMAGE_SIZE_320)
 
     def _handle_depth_map(self):
         """处理深度图"""
-        left = self.LeftText.toPlainText()
-        right = self.RightText.toPlainText()
         params = [
             self.parameters["FOV"],
             self.parameters["pupilLength"],
@@ -405,24 +399,46 @@ class MyWindow(QMainWindow, Ui_MainWindow):
             self.maskL,
             self.maskR
         ]
-        compute_depth_map(left, right, self.result_locations[7], *params)
-        self._set_pixmap(self.ImageF3, self.result_locations[7])
+        depth_map = compute_depth_map(self.present_image, self.result_locations[7], *params)
+        self._set_pixmap(self.ImageF3, depth_map)
 
     def _handle_edge_detection(self):
         """处理边缘检测"""
-        edge_detection(self.result_locations[4], self.result_locations[8])
-        self._set_pixmap(self.ImageF4_L, self.result_locations[8])
+        result = edge_detection(self.result_locations[4], self.result_locations[8])
+        self._set_pixmap(self.ImageF4_L, result)
 
     def _handle_saliency_detection(self):
         """处理显著性检测"""
-        segment_saliency(self.result_locations[4], self.result_locations[9])
-        self._set_pixmap(self.ImageF5_L, self.result_locations[9])
+        result = segment_saliency(self.result_locations[4], self.result_locations[9])
+        self._set_pixmap(self.ImageF5_L, result)
 
-    def _set_pixmap(self, widget, path, size=None):
-        """通用设置图片方法"""
-        pixmap = QPixmap(path)
+    def _set_pixmap(self, widget, img: np.ndarray, size=None):
+        """通用设置图片方法（支持numpy图像）"""
+
+        # 检查维度并转换成RGB格式
+        if img.ndim == 2:
+            # 灰度图
+            qimg = QImage(img.data, img.shape[1], img.shape[0], img.strides[0], QImage.Format_Grayscale8)
+        elif img.ndim == 3:
+            if img.shape[2] == 3:
+                # OpenCV默认是BGR，需要转为RGB
+                img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                qimg = QImage(img_rgb.data, img_rgb.shape[1], img_rgb.shape[0], img_rgb.strides[0], QImage.Format_RGB888)
+            elif img.shape[2] == 4:
+                # 带alpha通道
+                qimg = QImage(img.data, img.shape[1], img.shape[0], img.strides[0], QImage.Format_RGBA8888)
+            else:
+                raise ValueError("Unsupported image channel number.")
+        else:
+            raise ValueError("Unsupported image shape.")
+
+        # 转为QPixmap
+        pixmap = QPixmap.fromImage(qimg)
+
+        # 按需缩放
         if size:
-            pixmap = pixmap.scaled(*size, Qt.KeepAspectRatio)
+            pixmap = pixmap.scaled(*size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
         widget.setPixmap(pixmap)
 
     def captureshow(self):
