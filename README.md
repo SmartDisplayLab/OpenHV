@@ -1,6 +1,10 @@
 # OpenHV Software Development Documentation – HumanVisionSimulatorUI
 
-This document primarily introduces the software used in Paper [Bionic Vision Processing for Epiretinal Implant-Based Metaverse](https://pubs.acs.org/doi/full/10.1021/acsaom.3c00431) and related papers.
+Open Human Vision (OpenHV) is an open-source toolkit designed to simulate and analyze the human visual system in both 2D and 3D environments.
+It provides an integrated set of modules for binocular image processing, retinal projection, blur simulation, depth estimation, fusion, and saliency analysis.
+Researchers, engineers, and developers can use OpenHV to prototype, visualize, and evaluate various human-vision–related algorithms or VR/AR rendering techniques.
+
+OpenHV aims to provide a modular, extensible framework to support research in human vision modeling, computational neuroscience, VR/AR display evaluation, and bionic vision systems.
 
 🌐 Available Languages: [English](README.md) | [简体中文](README.zh-CN.md)
 
